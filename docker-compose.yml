@@ -1,0 +1,48 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: miamed_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       miamed
+      POSTGRES_USER:     miamed_user
+      POSTGRES_PASSWORD: changeme_strong_password
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U miamed_user -d miamed']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: miamed_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV:           development
+      PORT:               3000
+      DB_HOST:            postgres
+      DB_PORT:            5432
+      DB_NAME:            miamed
+      DB_USER:            miamed_user
+      DB_PASSWORD:        changeme_strong_password
+      JWT_SECRET:         dev_jwt_secret_replace_in_prod
+      JWT_REFRESH_SECRET: dev_refresh_secret_replace_in_prod
+      CORS_ORIGINS:       http://localhost:3001,http://localhost:5173
+    ports:
+      - '3000:3000'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: sh -c "npm run migrate && npm run seed && npm run dev"
+
+volumes:
+  pgdata:
